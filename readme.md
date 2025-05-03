@@ -2,7 +2,8 @@
 
 A sophisticated full-stack user management system built with Next.js 15, React 19, and MongoDB.
 
-![User Management Dashboard](./public/placeholder.jpg)
+[User Management Dashboard]
+
 Live Demo : https://user-management-tau-six.vercel.app/
 
 ## 🌟 Key Features
