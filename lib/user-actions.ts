@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache"
 import { connectToDatabase } from "@/lib/mongodb"
 import { ObjectId } from "mongodb"
 import { getServerSession } from "@/lib/auth"
-import { hash as bcryptHash } from "bcrypt"
+import { hash as bcryptHash } from "bcryptjs"
 
 // Helper function to check if a user has required roles
 async function checkUserRole(requiredRoles: string[]) {
