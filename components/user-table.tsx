@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useCallback, memo } from "react"
 import Image from "next/image"
 import { useRouter } from "next/navigation"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
@@ -40,7 +40,106 @@ interface UserTableProps {
   currentUserRole?: string
 }
 
-export function UserTable({ 
+// Memoize the table row component for better performance
+const UserTableRow = memo(({ 
+  user, 
+  onEdit, 
+  onDeleteClick, 
+  canEditUser, 
+  canDeleteUser 
+}: { 
+  user: any, 
+  onEdit: (user: any) => void, 
+  onDeleteClick: (user: any) => void, 
+  canEditUser: (user: any) => boolean, 
+  canDeleteUser: (user: any) => boolean 
+}) => {
+  return (
+    <TableRow key={user._id}>
+      <TableCell>
+        <div className="flex items-center gap-3">
+          <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center overflow-hidden">
+            {user.profilePhoto ? (
+              <Image
+                src={user.profilePhoto || "/placeholder.svg"}
+                alt={user.name}
+                width={40}
+                height={40}
+                className="object-cover"
+                loading="lazy"
+                placeholder="blur"
+                blurDataURL="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIGZpbGw9IiNlMmUyZTIiLz48L3N2Zz4="
+              />
+            ) : (
+              <span className="text-lg font-medium">{user.name.charAt(0)}</span>
+            )}
+          </div>
+          <div>
+            <p className="font-medium">{user.name}</p>
+          </div>
+        </div>
+      </TableCell>
+      <TableCell>{user.email}</TableCell>
+      <TableCell>
+        <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium bg-primary/10 text-primary">
+          {user.role}
+        </span>
+      </TableCell>
+      <TableCell>
+        <span
+          className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
+            user.status === "Active"
+              ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300"
+              : "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300"
+          }`}
+        >
+          {user.status}
+        </span>
+      </TableCell>
+      <TableCell className="text-right">
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="icon">
+              <MoreHorizontal className="h-4 w-4" />
+              <span className="sr-only">Open menu</span>
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuLabel>Actions</DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            
+            {canEditUser(user) && (
+              <DropdownMenuItem onClick={() => onEdit(user)}>
+                <Pencil className="mr-2 h-4 w-4" />
+                Edit
+              </DropdownMenuItem>
+            )}
+            
+            {canDeleteUser(user) && (
+              <DropdownMenuItem
+                onClick={() => onDeleteClick(user)}
+                className="text-red-600 focus:text-red-600"
+              >
+                <Trash2 className="mr-2 h-4 w-4" />
+                Delete
+              </DropdownMenuItem>
+            )}
+            
+            {/* Show a disabled message if no actions are available */}
+            {!canEditUser(user) && !canDeleteUser(user) && (
+              <DropdownMenuItem disabled>
+                No available actions
+              </DropdownMenuItem>
+            )}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </TableCell>
+    </TableRow>
+  );
+});
+UserTableRow.displayName = "UserTableRow";
+
+export const UserTable = memo(function UserTable({ 
   users, 
   isLoading, 
   onEdit, 
@@ -57,7 +156,7 @@ export function UserTable({
   const [isDeleting, setIsDeleting] = useState(false)
   const [deleteError, setDeleteError] = useState<string | null>(null)
 
-  const handleDeleteClick = (user: any) => {
+  const handleDeleteClick = useCallback((user: any) => {
     // Prevent non-admin users from deleting admin users
     if (user.role === "Admin" && currentUserRole !== "Admin") {
       toast({
@@ -81,9 +180,9 @@ export function UserTable({
     setUserToDelete(user)
     setDeleteError(null)
     setDeleteDialogOpen(true)
-  }
+  }, [currentUserRole, toast])
 
-  const handleDeleteConfirm = async () => {
+  const handleDeleteConfirm = useCallback(async () => {
     if (!userToDelete) return
 
     setIsDeleting(true)
@@ -118,22 +217,22 @@ export function UserTable({
     } finally {
       setIsDeleting(false)
     }
-  }
+  }, [userToDelete, onRefresh, router, toast])
 
-  const handlePreviousPage = () => {
+  const handlePreviousPage = useCallback(() => {
     if (page > 1) {
       onPageChange(page - 1)
     }
-  }
+  }, [page, onPageChange])
 
-  const handleNextPage = () => {
+  const handleNextPage = useCallback(() => {
     if (page < totalPages) {
       onPageChange(page + 1)
     }
-  }
+  }, [page, totalPages, onPageChange])
 
   // Check if current user can edit a specific user
-  const canEditUser = (user: any) => {
+  const canEditUser = useCallback((user: any) => {
     // Admins can edit any user
     if (currentUserRole === "Admin") return true;
     
@@ -142,15 +241,15 @@ export function UserTable({
     
     // Regular users can't edit anyone
     return false;
-  }
+  }, [currentUserRole])
   
   // Check if current user can delete a specific user
-  const canDeleteUser = (user: any) => {
+  const canDeleteUser = useCallback((user: any) => {
     // Only admins can delete users
     if (currentUserRole !== "Admin") return false;
     
     return true;
-  }
+  }, [currentUserRole])
 
   if (isLoading) {
     return (
@@ -216,83 +315,14 @@ export function UserTable({
               </TableRow>
             ) : (
               users.map((user) => (
-                <TableRow key={user._id}>
-                  <TableCell>
-                    <div className="flex items-center gap-3">
-                      <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center overflow-hidden">
-                        {user.profilePhoto ? (
-                          <Image
-                            src={user.profilePhoto || "/placeholder.svg"}
-                            alt={user.name}
-                            width={40}
-                            height={40}
-                            className="object-cover"
-                          />
-                        ) : (
-                          <span className="text-lg font-medium">{user.name.charAt(0)}</span>
-                        )}
-                      </div>
-                      <div>
-                        <p className="font-medium">{user.name}</p>
-                      </div>
-                    </div>
-                  </TableCell>
-                  <TableCell>{user.email}</TableCell>
-                  <TableCell>
-                    <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium bg-primary/10 text-primary">
-                      {user.role}
-                    </span>
-                  </TableCell>
-                  <TableCell>
-                    <span
-                      className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                        user.status === "Active"
-                          ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300"
-                          : "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300"
-                      }`}
-                    >
-                      {user.status}
-                    </span>
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon">
-                          <MoreHorizontal className="h-4 w-4" />
-                          <span className="sr-only">Open menu</span>
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                        <DropdownMenuSeparator />
-                        
-                        {canEditUser(user) && (
-                          <DropdownMenuItem onClick={() => onEdit(user)}>
-                            <Pencil className="mr-2 h-4 w-4" />
-                            Edit
-                          </DropdownMenuItem>
-                        )}
-                        
-                        {canDeleteUser(user) && (
-                          <DropdownMenuItem
-                            onClick={() => handleDeleteClick(user)}
-                            className="text-red-600 focus:text-red-600"
-                          >
-                            <Trash2 className="mr-2 h-4 w-4" />
-                            Delete
-                          </DropdownMenuItem>
-                        )}
-                        
-                        {/* Show a disabled message if no actions are available */}
-                        {!canEditUser(user) && !canDeleteUser(user) && (
-                          <DropdownMenuItem disabled>
-                            No available actions
-                          </DropdownMenuItem>
-                        )}
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </TableCell>
-                </TableRow>
+                <UserTableRow 
+                  key={user._id}
+                  user={user}
+                  onEdit={onEdit}
+                  onDeleteClick={handleDeleteClick}
+                  canEditUser={canEditUser}
+                  canDeleteUser={canDeleteUser}
+                />
               ))
             )}
           </TableBody>
@@ -351,4 +381,6 @@ export function UserTable({
       </AlertDialog>
     </div>
   )
-}
+})
+
+UserTable.displayName = "UserTable";
