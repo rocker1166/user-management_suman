@@ -3,6 +3,7 @@ import { redirect } from "next/navigation"
 import { getServerSession } from "@/lib/auth"
 import { DashboardNav } from "@/components/dashboard-nav"
 import { UserNav } from "@/components/user-nav"
+import { ThemeToggle } from "@/components/theme-toggle"
 
 export default async function DashboardLayout({
   children,
@@ -35,6 +36,7 @@ export default async function DashboardLayout({
             User Management
           </div>
           <div className="ml-auto flex items-center space-x-4">
+            <ThemeToggle />
             <UserNav user={session.user} />
           </div>
         </div>

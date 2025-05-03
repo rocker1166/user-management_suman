@@ -14,6 +14,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { useToast } from "@/components/ui/use-toast"
 import { logoutUser } from "@/lib/auth-actions"
+import { User } from "lucide-react"
 
 interface UserNavProps {
   user: {
@@ -61,9 +62,16 @@ export function UserNav({ user }: UserNavProps) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" className="relative h-8 w-8 rounded-full">
+        <Button variant="ghost" className="relative flex items-center gap-2 rounded-full pl-2">
+         
           <Avatar className="h-8 w-8">
-            <AvatarImage src={user.image || "/placeholder.svg"} alt={user.name} />
+            {user.image ? (
+              <AvatarImage src={user.image} alt={user.name} />
+            ) : (
+              <AvatarFallback>
+                <User className="h-4 w-4 text-muted-foreground" />
+              </AvatarFallback>
+            )}
             <AvatarFallback>{user.name.charAt(0)}</AvatarFallback>
           </Avatar>
         </Button>
