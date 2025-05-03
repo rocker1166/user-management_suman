@@ -27,8 +27,9 @@ const formSchema = z.object({
   status: z.enum(["Active", "Inactive"]),
   profilePhoto: z.string().optional(),
   password: z.string()
-    .min(6, { message: "Password must be at least 6 characters" }),
-  
+    .min(6, { message: "Password must be at least 6 characters" })
+    .optional() // Make password optional for editing
+    .or(z.literal('')), // Allow empty string
 })
 
 interface UserDialogProps {
@@ -107,6 +108,7 @@ export function UserDialog({ open, onOpenChange, user, currentUserRole }: UserDi
           title: "Permission Denied",
           description: "Only administrators can change an admin's role",
         });
+        setIsSubmitting(false);
         return;
       }
       
@@ -118,17 +120,27 @@ export function UserDialog({ open, onOpenChange, user, currentUserRole }: UserDi
           title: "Permission Denied",
           description: "Only administrators can assign admin role",
         });
+        setIsSubmitting(false);
         return;
       }
 
       if (isEditing) {
-        const result = await updateUser(user._id, values)
+        // For editing, remove the password field if it's empty
+        const { password, ...updateData } = values;
+        
+        toast({
+          title: "Updating user...",
+          description: "Please wait while we update the user information",
+        });
+        
+        const result = await updateUser(user._id, updateData)
         if (result.success) {
           toast({
             title: "User updated",
             description: "The user has been successfully updated",
           })
           onOpenChange(false, true)
+          router.refresh()
         } else {
           setFormError(result.error || "Failed to update user")
           toast({
@@ -145,6 +157,7 @@ export function UserDialog({ open, onOpenChange, user, currentUserRole }: UserDi
             description: "The user has been successfully created",
           })
           onOpenChange(false, true)
+          router.refresh()
         } else {
           setFormError(result.error || "Failed to create user")
           toast({
