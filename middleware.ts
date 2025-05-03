@@ -4,6 +4,11 @@ import { jwtVerify } from "jose"
 
 const JWT_SECRET = process.env.JWT_SECRET || "your-secret-key"
 
+// List of routes that require admin access
+const ADMIN_ROUTES = [
+  '/dashboard/settings'
+]
+
 // This function can be marked `async` if using `await` inside
 export async function middleware(request: NextRequest) {
   const token = request.cookies.get("auth-token")?.value
@@ -27,6 +32,37 @@ export async function middleware(request: NextRequest) {
     const loginUrl = new URL("/login", request.url)
     loginUrl.searchParams.set("callbackUrl", request.nextUrl.pathname)
     return NextResponse.redirect(loginUrl)
+  }
+
+  // Check role-based access
+  if (token) {
+    try {
+      // Verify and decode the token
+      const { payload } = await jwtVerify(token, new TextEncoder().encode(JWT_SECRET))
+      const userRole = payload.role as string
+
+      // Check if current route requires admin access
+      if (ADMIN_ROUTES.some(route => request.nextUrl.pathname.startsWith(route)) && userRole !== 'Admin') {
+        // Redirect non-admin users to dashboard
+        return NextResponse.redirect(new URL("/dashboard", request.url))
+      }
+      
+      // Check if API request has proper role permissions
+      if (isApiRequest && request.nextUrl.pathname.startsWith("/api/users") && 
+          (request.method === 'POST' || request.method === 'PUT' || request.method === 'DELETE') && 
+          userRole !== 'Admin') {
+        return NextResponse.json({ error: "Unauthorized: Admin role required" }, { status: 403 })
+      }
+      
+    } catch (error) {
+      // Invalid token, handle accordingly
+      if (isApiRequest) {
+        return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+      }
+      
+      const loginUrl = new URL("/login", request.url)
+      return NextResponse.redirect(loginUrl)
+    }
   }
 
   // For API routes, return 401 if no token

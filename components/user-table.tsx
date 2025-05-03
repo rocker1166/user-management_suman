@@ -27,6 +27,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
+import { RoleGuard } from "@/components/role-guard"
 
 interface UserTableProps {
   users: any[]
@@ -36,15 +37,45 @@ interface UserTableProps {
   page: number
   totalPages: number
   onPageChange: (page: number) => void
+  currentUserRole?: string
 }
 
-export function UserTable({ users, isLoading, onEdit, onRefresh, page, totalPages, onPageChange }: UserTableProps) {
+export function UserTable({ 
+  users, 
+  isLoading, 
+  onEdit, 
+  onRefresh, 
+  page, 
+  totalPages, 
+  onPageChange,
+  currentUserRole
+}: UserTableProps) {
   const router = useRouter()
   const { toast } = useToast()
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [userToDelete, setUserToDelete] = useState<any>(null)
 
   const handleDeleteClick = (user: any) => {
+    // Prevent non-admin users from deleting admin users
+    if (user.role === "Admin" && currentUserRole !== "Admin") {
+      toast({
+        variant: "destructive",
+        title: "Permission Denied",
+        description: "Only administrators can delete admin users",
+      })
+      return
+    }
+    
+    // Prevent users from deleting themselves
+    if (user.email === currentUserRole) {
+      toast({
+        variant: "destructive",
+        title: "Permission Denied",
+        description: "You cannot delete your own account",
+      })
+      return
+    }
+    
     setUserToDelete(user)
     setDeleteDialogOpen(true)
   }
@@ -90,6 +121,26 @@ export function UserTable({ users, isLoading, onEdit, onRefresh, page, totalPage
     if (page < totalPages) {
       onPageChange(page + 1)
     }
+  }
+
+  // Check if current user can edit a specific user
+  const canEditUser = (user: any) => {
+    // Admins can edit any user
+    if (currentUserRole === "Admin") return true;
+    
+    // Editors can edit regular users but not admins
+    if (currentUserRole === "Editor" && user.role !== "Admin") return true;
+    
+    // Regular users can't edit anyone
+    return false;
+  }
+  
+  // Check if current user can delete a specific user
+  const canDeleteUser = (user: any) => {
+    // Only admins can delete users
+    if (currentUserRole !== "Admin") return false;
+    
+    return true;
   }
 
   if (isLoading) {
@@ -205,17 +256,30 @@ export function UserTable({ users, isLoading, onEdit, onRefresh, page, totalPage
                       <DropdownMenuContent align="end">
                         <DropdownMenuLabel>Actions</DropdownMenuLabel>
                         <DropdownMenuSeparator />
-                        <DropdownMenuItem onClick={() => onEdit(user)}>
-                          <Pencil className="mr-2 h-4 w-4" />
-                          Edit
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          onClick={() => handleDeleteClick(user)}
-                          className="text-red-600 focus:text-red-600"
-                        >
-                          <Trash2 className="mr-2 h-4 w-4" />
-                          Delete
-                        </DropdownMenuItem>
+                        
+                        {canEditUser(user) && (
+                          <DropdownMenuItem onClick={() => onEdit(user)}>
+                            <Pencil className="mr-2 h-4 w-4" />
+                            Edit
+                          </DropdownMenuItem>
+                        )}
+                        
+                        {canDeleteUser(user) && (
+                          <DropdownMenuItem
+                            onClick={() => handleDeleteClick(user)}
+                            className="text-red-600 focus:text-red-600"
+                          >
+                            <Trash2 className="mr-2 h-4 w-4" />
+                            Delete
+                          </DropdownMenuItem>
+                        )}
+                        
+                        {/* Show a disabled message if no actions are available */}
+                        {!canEditUser(user) && !canDeleteUser(user) && (
+                          <DropdownMenuItem disabled>
+                            No available actions
+                          </DropdownMenuItem>
+                        )}
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </TableCell>

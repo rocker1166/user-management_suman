@@ -34,8 +34,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     async function loadUserFromSession() {
       try {
-        const res = await fetch("/api/auth/session")
-        if (res.ok) {
+        // Use AbortController to handle timeouts
+        const controller = new AbortController()
+        const timeoutId = setTimeout(() => controller.abort(), 5000) // 5 second timeout
+        
+        const res = await fetch("/api/auth/session", {
+          signal: controller.signal,
+          // Add cache control headers to prevent caching issues
+          headers: {
+            "Cache-Control": "no-cache, no-store, max-age=0, must-revalidate",
+            "Pragma": "no-cache"
+          }
+        })
+        
+        clearTimeout(timeoutId)
+        
+        // Check content type to avoid parsing HTML as JSON
+        const contentType = res.headers.get("content-type")
+        if (res.ok && contentType && contentType.includes("application/json")) {
           const data = await res.json()
           if (data.user) {
             setUser(data.user)
@@ -43,10 +59,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             setUser(null)
           }
         } else {
+          console.warn("Session API didn't return valid JSON:", res.status, contentType)
           setUser(null)
         }
       } catch (error) {
-        console.error("Failed to load user session:", error)
+        // Check if it's an AbortError (timeout)
+        if (error instanceof DOMException && error.name === "AbortError") {
+          console.error("Session request timed out")
+        } else {
+          console.error("Failed to load user session:", error)
+        }
         setUser(null)
       } finally {
         setLoading(false)

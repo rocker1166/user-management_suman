@@ -5,6 +5,28 @@ import { connectToDatabase } from "@/lib/mongodb"
 import { ObjectId } from "mongodb"
 import { getServerSession } from "@/lib/auth"
 
+// Helper function to check if a user has required roles
+async function checkUserRole(requiredRoles: string[]) {
+  const session = await getServerSession()
+
+  if (!session) {
+    return { success: false, error: "Unauthorized", authorized: false }
+  }
+
+  // Check if user has one of the required roles
+  const hasPermission = requiredRoles.includes(session.user.role)
+  
+  if (!hasPermission) {
+    return { 
+      success: false, 
+      error: `Permission denied. Required role: ${requiredRoles.join(' or ')}`, 
+      authorized: false 
+    }
+  }
+
+  return { success: true, authorized: true, session }
+}
+
 export async function getUsers(
   page = 1, 
   limit = 10, 
@@ -15,14 +37,14 @@ export async function getUsers(
   }
 ) {
   try {
-    const session = await getServerSession()
-
-    if (!session) {
-      return { success: false, error: "Unauthorized" }
+    // Any authenticated user can view users list, but we'll filter what they see later
+    const auth = await checkUserRole(["Admin", "Editor", "User"])
+    
+    if (!auth.authorized) {
+      return auth
     }
 
     const { db } = await connectToDatabase()
-
     const skip = (page - 1) * limit
 
     // Build query filter
@@ -38,6 +60,11 @@ export async function getUsers(
       if (search.status) {
         filter.status = search.status
       }
+    }
+    
+    // If user is not Admin or Editor, they can only see their own info
+    if (auth.session?.user.role === "User") {
+      filter.email = auth.session.user.email
     }
 
     const users = await db
@@ -67,10 +94,11 @@ export async function getUsers(
 
 export async function getUserById(id: string) {
   try {
-    const session = await getServerSession()
-
-    if (!session) {
-      return { success: false, error: "Unauthorized" }
+    // Admin and Editor can view any user, regular users can only view themselves
+    const auth = await checkUserRole(["Admin", "Editor", "User"])
+    
+    if (!auth.authorized) {
+      return auth
     }
 
     const { db } = await connectToDatabase()
@@ -79,6 +107,11 @@ export async function getUserById(id: string) {
 
     if (!user) {
       return { success: false, error: "User not found" }
+    }
+    
+    // If regular user is trying to view someone else's data
+    if (auth.session?.user.role === "User" && user.email !== auth.session.user.email) {
+      return { success: false, error: "Permission denied" }
     }
 
     return { success: true, data: JSON.parse(JSON.stringify(user)) }
@@ -96,10 +129,17 @@ export async function createUser(userData: {
   profilePhoto?: string
 }) {
   try {
-    const session = await getServerSession()
-
-    if (!session) {
-      return { success: false, error: "Unauthorized" }
+    // Only Admin can create any user
+    // Editors can only create regular users
+    const auth = await checkUserRole(["Admin", "Editor"])
+    
+    if (!auth.authorized) {
+      return auth
+    }
+    
+    // If Editor is trying to create an Admin
+    if (auth.session?.user.role === "Editor" && userData.role === "Admin") {
+      return { success: false, error: "Editors cannot create Admin users" }
     }
 
     const { db } = await connectToDatabase()
@@ -142,13 +182,46 @@ export async function updateUser(
   },
 ) {
   try {
-    const session = await getServerSession()
-
-    if (!session) {
-      return { success: false, error: "Unauthorized" }
+    // Admin can update any user
+    // Editors can update regular users but not admins
+    // Users can only update themselves but not change their role
+    const auth = await checkUserRole(["Admin", "Editor", "User"])
+    
+    if (!auth.authorized) {
+      return auth
     }
 
     const { db } = await connectToDatabase()
+    
+    // Get the user being updated
+    const userToUpdate = await db.collection("users").findOne({ _id: new ObjectId(id) })
+    
+    if (!userToUpdate) {
+      return { success: false, error: "User not found" }
+    }
+    
+    // Role-based update restrictions
+    if (auth.session?.user.role === "Editor") {
+      // Editors cannot update admins
+      if (userToUpdate.role === "Admin") {
+        return { success: false, error: "Editors cannot modify Admin users" }
+      }
+      
+      // Editors cannot change a user to Admin
+      if (userData.role === "Admin") {
+        return { success: false, error: "Editors cannot assign Admin role" }
+      }
+    } else if (auth.session?.user.role === "User") {
+      // Regular users can only update themselves
+      if (userToUpdate.email !== auth.session.user.email) {
+        return { success: false, error: "You can only update your own account" }
+      }
+      
+      // Users cannot change their own role
+      if (userData.role !== userToUpdate.role) {
+        return { success: false, error: "You cannot change your role" }
+      }
+    }
 
     // Check if email is already taken by another user
     const existingUser = await db.collection("users").findOne({
@@ -164,10 +237,6 @@ export async function updateUser(
       .collection("users")
       .updateOne({ _id: new ObjectId(id) }, { $set: { ...userData, updatedAt: new Date() } })
 
-    if (result.matchedCount === 0) {
-      return { success: false, error: "User not found" }
-    }
-
     revalidatePath("/dashboard")
 
     return { success: true }
@@ -179,19 +248,28 @@ export async function updateUser(
 
 export async function deleteUser(id: string) {
   try {
-    const session = await getServerSession()
-
-    if (!session) {
-      return { success: false, error: "Unauthorized" }
+    // Only Admins can delete users
+    const auth = await checkUserRole(["Admin"])
+    
+    if (!auth.authorized) {
+      return auth
     }
 
     const { db } = await connectToDatabase()
-
-    const result = await db.collection("users").deleteOne({ _id: new ObjectId(id) })
-
-    if (result.deletedCount === 0) {
+    
+    // Get the user being deleted
+    const userToDelete = await db.collection("users").findOne({ _id: new ObjectId(id) })
+    
+    if (!userToDelete) {
       return { success: false, error: "User not found" }
     }
+    
+    // Prevent deleting yourself
+    if (userToDelete.email === auth.session?.user.email) {
+      return { success: false, error: "You cannot delete your own account" }
+    }
+
+    const result = await db.collection("users").deleteOne({ _id: new ObjectId(id) })
 
     revalidatePath("/dashboard")
 

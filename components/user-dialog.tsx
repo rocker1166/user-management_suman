@@ -32,9 +32,10 @@ interface UserDialogProps {
   open: boolean
   onOpenChange: (open: boolean, refresh?: boolean) => void
   user?: any
+  currentUserRole?: string
 }
 
-export function UserDialog({ open, onOpenChange, user }: UserDialogProps) {
+export function UserDialog({ open, onOpenChange, user, currentUserRole }: UserDialogProps) {
   const router = useRouter()
   const { toast } = useToast()
   const isEditing = !!user
@@ -70,8 +71,44 @@ export function UserDialog({ open, onOpenChange, user }: UserDialogProps) {
     }
   }, [user, form])
 
+  // Function to check if user is allowed to assign a specific role
+  const canAssignRole = (role: string) => {
+    // Only admins can create other admins
+    if (role === "Admin" && currentUserRole !== "Admin") {
+      return false;
+    }
+    
+    // Editors can create regular users but not admins
+    if (currentUserRole === "Editor" && role !== "Admin") {
+      return true;
+    }
+    
+    // Admins can assign any role
+    return currentUserRole === "Admin";
+  };
+
   async function onSubmit(values: z.infer<typeof formSchema>) {
     try {
+      // Check if user is trying to change an Admin's role and is not an admin themselves
+      if (isEditing && user.role === "Admin" && values.role !== "Admin" && currentUserRole !== "Admin") {
+        toast({
+          variant: "destructive",
+          title: "Permission Denied",
+          description: "Only administrators can change an admin's role",
+        });
+        return;
+      }
+      
+      // Check if user is trying to promote someone to Admin without being an Admin
+      if (values.role === "Admin" && currentUserRole !== "Admin") {
+        toast({
+          variant: "destructive",
+          title: "Permission Denied",
+          description: "Only administrators can assign admin role",
+        });
+        return;
+      }
+
       if (isEditing) {
         const result = await updateUser(user._id, values)
         if (result.success) {
@@ -163,7 +200,9 @@ export function UserDialog({ open, onOpenChange, user }: UserDialogProps) {
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        <SelectItem value="Admin">Admin</SelectItem>
+                        {canAssignRole("Admin") && (
+                          <SelectItem value="Admin">Admin</SelectItem>
+                        )}
                         <SelectItem value="User">User</SelectItem>
                         <SelectItem value="Editor">Editor</SelectItem>
                       </SelectContent>

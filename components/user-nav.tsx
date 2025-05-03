@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { Badge } from "@/components/ui/badge"
 import { useToast } from "@/components/ui/use-toast"
 import { logoutUser } from "@/lib/auth-actions"
 
@@ -19,12 +20,25 @@ interface UserNavProps {
     name: string
     email: string
     image?: string
+    role?: string
   }
 }
 
 export function UserNav({ user }: UserNavProps) {
   const router = useRouter()
   const { toast } = useToast()
+
+  // Role badge color based on role type
+  const getRoleBadgeVariant = (role?: string) => {
+    switch (role) {
+      case "Admin":
+        return "destructive" // Red for admin
+      case "Editor":
+        return "default" // Blue for editor
+      default:
+        return "secondary" // Gray for regular user
+    }
+  }
 
   const handleLogout = async () => {
     try {
@@ -57,13 +71,30 @@ export function UserNav({ user }: UserNavProps) {
       <DropdownMenuContent className="w-56" align="end" forceMount>
         <DropdownMenuLabel className="font-normal">
           <div className="flex flex-col space-y-1">
-            <p className="text-sm font-medium leading-none">{user.name}</p>
+            <div className="flex items-center justify-between">
+              <p className="text-sm font-medium leading-none">{user.name}</p>
+              {user.role && (
+                <Badge variant={getRoleBadgeVariant(user.role)} className="ml-2">
+                  {user.role}
+                </Badge>
+              )}
+            </div>
             <p className="text-xs leading-none text-muted-foreground">{user.email}</p>
           </div>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
         <DropdownMenuItem onClick={() => router.push("/dashboard")}>Dashboard</DropdownMenuItem>
-        <DropdownMenuItem onClick={() => router.push("/dashboard/settings")}>Settings</DropdownMenuItem>
+        
+        {/* Only show settings for Admin users */}
+        {user.role === "Admin" && (
+          <DropdownMenuItem onClick={() => router.push("/dashboard/settings")}>Settings</DropdownMenuItem>
+        )}
+        
+        {/* Show users page for Admin and Editor roles */}
+        {(user.role === "Admin" || user.role === "Editor") && (
+          <DropdownMenuItem onClick={() => router.push("/dashboard/users")}>Users</DropdownMenuItem>
+        )}
+        
         <DropdownMenuSeparator />
         <DropdownMenuItem onClick={handleLogout}>Log out</DropdownMenuItem>
       </DropdownMenuContent>
