@@ -3,7 +3,8 @@ import Link from "next/link"
 import { LoginForm } from "@/components/login-form"
 import { getServerSession } from "@/lib/auth"
 import { redirect } from "next/navigation"
-import { SparkleEffect } from "@/components/ui/sparkle-effect"
+import { LightAura } from "@/components/ui/light-aura"
+import { CredentialsHelper } from "@/components/credentials-helper"
 
 export const metadata: Metadata = {
   title: "Login | User Management Dashboard",
@@ -19,10 +20,13 @@ export default async function LoginPage() {
 
   return (
     <div className="container relative flex-col items-center justify-center min-h-screen grid lg:max-w-none lg:grid-cols-2 lg:px-0">
+      {/* Credentials helper icon */}
+      <CredentialsHelper />
+      
       <div className="relative hidden h-full flex-col bg-muted p-10 text-white lg:flex dark:border-r">
         <div className="absolute inset-0 bg-zinc-900" />
-        {/* Enhanced sparkle effect with rainbow colors */}
-        <SparkleEffect size={12} duration={1200} density={0.5} trailSize={30} />
+        {/* Light aura effect for large screens */}
+        <LightAura intensity={0.8} speed={0.7} size={120} />
         <div className="relative z-20 flex items-center text-lg font-medium">
           <svg
             xmlns="http://www.w3.org/2000/svg"
@@ -48,7 +52,9 @@ export default async function LoginPage() {
           </blockquote>
         </div>
       </div>
-      <div className="lg:p-8">
+      <div className="lg:p-8 relative">
+        {/* Removed the light aura effect for small screens */}
+        
         <div className="mx-auto flex w-full flex-col justify-center space-y-6 sm:w-[350px]">
           <div className="flex flex-col space-y-2 text-center">
             <h1 className="text-2xl font-semibold tracking-tight">Login to your account</h1>
