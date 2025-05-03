@@ -18,7 +18,7 @@ export default async function DashboardLayout({
 
   return (
     <div className="flex min-h-screen flex-col">
-      <header className="sticky top-0 z-40 border-b bg-background">
+      <header className="fixed top-0 left-0 right-0 z-50 border-b bg-background shadow-sm">
         <div className="flex h-16 items-center px-4">
           <div className="flex items-center font-semibold">
             <svg
@@ -41,8 +41,8 @@ export default async function DashboardLayout({
           </div>
         </div>
       </header>
-      <div className="flex flex-1 overflow-hidden">
-        <aside className="fixed left-0 top-16 bottom-0 z-30 w-64 border-r bg-muted/40 hidden md:block overflow-y-auto">
+      <div className="flex flex-1 overflow-hidden pt-16">
+        <aside className="fixed left-0 top-16 bottom-0 z-40 w-64 border-r bg-muted/40 hidden md:block overflow-y-auto">
           <DashboardNav />
         </aside>
         <main className="flex-1 overflow-y-auto pl-0 md:pl-64 pt-0">
