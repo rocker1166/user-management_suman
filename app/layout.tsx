@@ -12,7 +12,7 @@ const inter = Inter({ subsets: ["latin"] })
 export const metadata: Metadata = {
   title: "User Management Dashboard",
   description: "A full-stack user management dashboard built with Next.js",
-  generator: 'v0.dev'
+  generator: 'suman jana'
 }
 
 export default function RootLayout({

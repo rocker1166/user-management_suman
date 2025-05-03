@@ -68,11 +68,8 @@ export function UserNav({ user }: UserNavProps) {
             {user.image ? (
               <AvatarImage src={user.image} alt={user.name} />
             ) : (
-              <AvatarFallback>
-                <User className="h-4 w-4 text-muted-foreground" />
-              </AvatarFallback>
+              <AvatarFallback>{user.name.charAt(0)}</AvatarFallback>
             )}
-            <AvatarFallback>{user.name.charAt(0)}</AvatarFallback>
           </Avatar>
         </Button>
       </DropdownMenuTrigger>
