@@ -122,7 +122,7 @@ export function UserDashboard() {
             <SelectItem value="all">All roles</SelectItem>
             <SelectItem value="Admin">Admin</SelectItem>
             <SelectItem value="User">User</SelectItem>
-            <SelectItem value="Manager">Manager</SelectItem>
+            <SelectItem value="Editor">Editor</SelectItem>
           </SelectContent>
         </Select>
         
