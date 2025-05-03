@@ -10,6 +10,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Input } from "@/components/ui/input"
 import { useToast } from "@/components/ui/use-toast"
 import { loginUser } from "@/lib/auth-actions"
+import { AlertCircle } from "lucide-react"
 
 const formSchema = z.object({
   email: z.string().email({ message: "Please enter a valid email address" }),
@@ -22,6 +23,7 @@ export function LoginForm() {
   const router = useRouter()
   const { toast } = useToast()
   const [isLoading, setIsLoading] = useState(false)
+  const [loginError, setLoginError] = useState<string | null>(null)
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -33,6 +35,7 @@ export function LoginForm() {
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsLoading(true)
+    setLoginError(null)
     try {
       const result = await loginUser(values)
       if (result.success) {
@@ -43,6 +46,7 @@ export function LoginForm() {
         router.push("/dashboard")
         router.refresh()
       } else {
+        setLoginError(result.error || "Invalid credentials")
         toast({
           variant: "destructive",
           title: "Login failed",
@@ -50,6 +54,8 @@ export function LoginForm() {
         })
       }
     } catch (error) {
+      console.error("Login error:", error)
+      setLoginError("An unexpected error occurred. Please try again.")
       toast({
         variant: "destructive",
         title: "Login failed",
@@ -63,6 +69,12 @@ export function LoginForm() {
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+        {loginError && (
+          <div className="bg-destructive/15 text-destructive text-sm p-3 rounded-md flex items-center gap-2">
+            <AlertCircle className="h-4 w-4" />
+            <span>{loginError}</span>
+          </div>
+        )}
         <FormField
           control={form.control}
           name="email"

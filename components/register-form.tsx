@@ -10,6 +10,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Input } from "@/components/ui/input"
 import { useToast } from "@/components/ui/use-toast"
 import { registerUser } from "@/lib/auth-actions"
+import { AlertCircle } from "lucide-react"
 
 const formSchema = z.object({
   name: z.string().min(2, { message: "Name must be at least 2 characters" }),
@@ -29,6 +30,7 @@ export function RegisterForm() {
   const router = useRouter()
   const { toast } = useToast()
   const [isLoading, setIsLoading] = useState(false)
+  const [registerError, setRegisterError] = useState<string | null>(null)
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -42,6 +44,7 @@ export function RegisterForm() {
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsLoading(true)
+    setRegisterError(null)
     try {
       const { confirmPassword, ...registerData } = values
       const result = await registerUser(registerData)
@@ -54,6 +57,7 @@ export function RegisterForm() {
         router.push("/login")
         router.refresh()
       } else {
+        setRegisterError(result.error || "Unable to create account")
         toast({
           variant: "destructive",
           title: "Registration failed",
@@ -61,6 +65,8 @@ export function RegisterForm() {
         })
       }
     } catch (error) {
+      console.error("Registration error:", error)
+      setRegisterError("An unexpected error occurred. Please try again.")
       toast({
         variant: "destructive",
         title: "Registration failed",
@@ -74,6 +80,12 @@ export function RegisterForm() {
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+        {registerError && (
+          <div className="bg-destructive/15 text-destructive text-sm p-3 rounded-md flex items-center gap-2">
+            <AlertCircle className="h-4 w-4" />
+            <span>{registerError}</span>
+          </div>
+        )}
         <FormField
           control={form.control}
           name="name"

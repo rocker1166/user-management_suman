@@ -54,6 +54,8 @@ export function UserTable({
   const { toast } = useToast()
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [userToDelete, setUserToDelete] = useState<any>(null)
+  const [isDeleting, setIsDeleting] = useState(false)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
 
   const handleDeleteClick = (user: any) => {
     // Prevent non-admin users from deleting admin users
@@ -77,12 +79,15 @@ export function UserTable({
     }
     
     setUserToDelete(user)
+    setDeleteError(null)
     setDeleteDialogOpen(true)
   }
 
   const handleDeleteConfirm = async () => {
     if (!userToDelete) return
 
+    setIsDeleting(true)
+    setDeleteError(null)
     try {
       const result = await deleteUser(userToDelete._id)
       if (result.success) {
@@ -92,7 +97,10 @@ export function UserTable({
         })
         onRefresh()
         router.refresh()
+        setDeleteDialogOpen(false)
+        setUserToDelete(null)
       } else {
+        setDeleteError(result.error || "Failed to delete user")
         toast({
           variant: "destructive",
           title: "Error",
@@ -100,14 +108,15 @@ export function UserTable({
         })
       }
     } catch (error) {
+      console.error("Delete error:", error)
+      setDeleteError("An unexpected error occurred. Please try again.")
       toast({
         variant: "destructive",
         title: "Error",
         description: "An unexpected error occurred",
       })
     } finally {
-      setDeleteDialogOpen(false)
-      setUserToDelete(null)
+      setIsDeleting(false)
     }
   }
 
@@ -308,7 +317,14 @@ export function UserTable({
       )}
 
       {/* Delete confirmation dialog */}
-      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+      <AlertDialog open={deleteDialogOpen} onOpenChange={(open) => {
+        if (!isDeleting) {
+          setDeleteDialogOpen(open);
+          if (!open) {
+            setDeleteError(null);
+          }
+        }
+      }}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Are you sure?</AlertDialogTitle>
@@ -316,10 +332,19 @@ export function UserTable({
               This action cannot be undone. This will permanently delete the user and remove their data from the server.
             </AlertDialogDescription>
           </AlertDialogHeader>
+          {deleteError && (
+            <div className="bg-destructive/15 text-destructive text-sm p-3 rounded-md mt-2">
+              {deleteError}
+            </div>
+          )}
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDeleteConfirm} className="bg-red-600 hover:bg-red-700">
-              Delete
+            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleDeleteConfirm} 
+              className="bg-red-600 hover:bg-red-700"
+              disabled={isDeleting}
+            >
+              {isDeleting ? "Deleting..." : "Delete"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache"
 import { connectToDatabase } from "@/lib/mongodb"
 import { ObjectId } from "mongodb"
 import { getServerSession } from "@/lib/auth"
+import { hash as bcryptHash } from "bcrypt"
 
 // Helper function to check if a user has required roles
 async function checkUserRole(requiredRoles: string[]) {
@@ -127,6 +128,7 @@ export async function createUser(userData: {
   role: string
   status: string
   profilePhoto?: string
+  password?: string
 }) {
   try {
     // Only Admin can create any user
@@ -151,10 +153,23 @@ export async function createUser(userData: {
       return { success: false, error: "User with this email already exists" }
     }
 
-    // Create user with a default password
+    // Create user with provided password or default password
+    let hashedPassword;
+    
+    if (userData.password) {
+      // Hash the provided password
+      hashedPassword = await hash(userData.password, 10);
+    } else {
+      // Use default password if not provided
+      hashedPassword = "$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy"; // default: password123
+    }
+    
+    // Remove password from userData to avoid storing it twice
+    const { password, ...userDataWithoutPassword } = userData;
+    
     const result = await db.collection("users").insertOne({
-      ...userData,
-      password: "$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy", // default: password123
+      ...userDataWithoutPassword,
+      password: hashedPassword,
       createdAt: new Date(),
     })
 
@@ -279,3 +294,12 @@ export async function deleteUser(id: string) {
     return { success: false, error: "Failed to delete user" }
   }
 }
+async function hash(password: string, saltRounds: number): Promise<string> {
+  try {
+    return await bcryptHash(password, saltRounds)
+  } catch (error) {
+    console.error("Password hashing failed:", error)
+    throw new Error("Failed to hash password")
+  }
+}
+

@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect } from "react"
+import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useForm } from "react-hook-form"
@@ -26,6 +26,9 @@ const formSchema = z.object({
   role: z.enum(["Admin", "User", "Editor"]),
   status: z.enum(["Active", "Inactive"]),
   profilePhoto: z.string().optional(),
+  password: z.string()
+    .min(6, { message: "Password must be at least 6 characters" }),
+  
 })
 
 interface UserDialogProps {
@@ -39,6 +42,8 @@ export function UserDialog({ open, onOpenChange, user, currentUserRole }: UserDi
   const router = useRouter()
   const { toast } = useToast()
   const isEditing = !!user
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [formError, setFormError] = useState<string | null>(null)
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -48,6 +53,7 @@ export function UserDialog({ open, onOpenChange, user, currentUserRole }: UserDi
       role: "User",
       status: "Active",
       profilePhoto: "",
+      password: "", // Initialize the password field with an empty string
     },
   })
 
@@ -59,6 +65,7 @@ export function UserDialog({ open, onOpenChange, user, currentUserRole }: UserDi
         role: user.role,
         status: user.status,
         profilePhoto: user.profilePhoto || "",
+        password: "", // Reset password field when editing
       })
     } else {
       form.reset({
@@ -67,6 +74,7 @@ export function UserDialog({ open, onOpenChange, user, currentUserRole }: UserDi
         role: "User",
         status: "Active",
         profilePhoto: "",
+        password: "", // Reset password field when creating new user
       })
     }
   }, [user, form])
@@ -88,9 +96,12 @@ export function UserDialog({ open, onOpenChange, user, currentUserRole }: UserDi
   };
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
+    setIsSubmitting(true)
+    setFormError(null)
     try {
       // Check if user is trying to change an Admin's role and is not an admin themselves
       if (isEditing && user.role === "Admin" && values.role !== "Admin" && currentUserRole !== "Admin") {
+        setFormError("Only administrators can change an admin's role")
         toast({
           variant: "destructive",
           title: "Permission Denied",
@@ -101,6 +112,7 @@ export function UserDialog({ open, onOpenChange, user, currentUserRole }: UserDi
       
       // Check if user is trying to promote someone to Admin without being an Admin
       if (values.role === "Admin" && currentUserRole !== "Admin") {
+        setFormError("Only administrators can assign admin role")
         toast({
           variant: "destructive",
           title: "Permission Denied",
@@ -118,6 +130,7 @@ export function UserDialog({ open, onOpenChange, user, currentUserRole }: UserDi
           })
           onOpenChange(false, true)
         } else {
+          setFormError(result.error || "Failed to update user")
           toast({
             variant: "destructive",
             title: "Error",
@@ -133,6 +146,7 @@ export function UserDialog({ open, onOpenChange, user, currentUserRole }: UserDi
           })
           onOpenChange(false, true)
         } else {
+          setFormError(result.error || "Failed to create user")
           toast({
             variant: "destructive",
             title: "Error",
@@ -141,16 +155,25 @@ export function UserDialog({ open, onOpenChange, user, currentUserRole }: UserDi
         }
       }
     } catch (error) {
+      console.error("Form submission error:", error)
+      setFormError("An unexpected error occurred. Please try again.")
       toast({
         variant: "destructive",
         title: "Error",
         description: "An unexpected error occurred",
       })
+    } finally {
+      setIsSubmitting(false)
     }
   }
 
   return (
-    <Dialog open={open} onOpenChange={(open) => onOpenChange(open)}>
+    <Dialog open={open} onOpenChange={(open) => {
+      if (!isSubmitting) {
+        setFormError(null)
+        onOpenChange(open)
+      }
+    }}>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
           <DialogTitle>{isEditing ? "Edit User" : "Add User"}</DialogTitle>
@@ -160,6 +183,11 @@ export function UserDialog({ open, onOpenChange, user, currentUserRole }: UserDi
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            {formError && (
+              <div className="bg-destructive/15 text-destructive text-sm p-3 rounded-md">
+                {formError}
+              </div>
+            )}
             <FormField
               control={form.control}
               name="name"
@@ -246,8 +274,27 @@ export function UserDialog({ open, onOpenChange, user, currentUserRole }: UserDi
                 </FormItem>
               )}
             />
+            {!isEditing && (
+              <FormField
+                control={form.control}
+                name="password"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Password</FormLabel>
+                    <FormControl>
+                      <Input type="password" placeholder="Enter password" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            )}
             <DialogFooter>
-              <Button type="submit">{isEditing ? "Update User" : "Create User"}</Button>
+              <Button type="submit" disabled={isSubmitting}>
+                {isSubmitting 
+                  ? (isEditing ? "Updating..." : "Creating...") 
+                  : (isEditing ? "Update User" : "Create User")}
+              </Button>
             </DialogFooter>
           </form>
         </Form>
