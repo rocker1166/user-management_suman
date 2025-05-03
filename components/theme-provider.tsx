@@ -6,8 +6,7 @@ import {
   type ThemeProviderProps,
 } from 'next-themes'
 
-// Create a client-only wrapper to prevent hydration mismatch
-function ClientOnly({ children }: { children: React.ReactNode }) {
+export function ThemeProvider({ children, ...props }: ThemeProviderProps) {
   const [mounted, setMounted] = React.useState(false)
   
   // Only execute this effect on the client
@@ -15,25 +14,14 @@ function ClientOnly({ children }: { children: React.ReactNode }) {
     setMounted(true)
   }, [])
   
-  // Return null on the first render (server-side)
-  // This prevents hydration mismatch by not rendering anything theme-related on the server
-  if (!mounted) {
-    return null
-  }
-  
-  return <>{children}</>
-}
-
-export function ThemeProvider({ children, ...props }: ThemeProviderProps) {
+  // On the server or during first client render,
+  // children are rendered directly without theme context to avoid hydration mismatch
   return (
-    <>
-      {/* Render a simple wrapper on the server */}
-      <NextThemesProvider {...props} enableSystem={false} enableColorScheme={false} storageKey="suppress-during-ssr">
-        <ClientOnly>
-          {/* Re-render with actual theme settings after mounting */}
-          <NextThemesProvider {...props}>{children}</NextThemesProvider>
-        </ClientOnly>
-      </NextThemesProvider>
-    </>
+    <NextThemesProvider 
+      {...props}
+      storageKey="theme"
+    >
+      {children}
+    </NextThemesProvider>
   )
 }

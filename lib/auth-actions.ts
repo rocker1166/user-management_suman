@@ -7,7 +7,7 @@ import { connectToDatabase } from "@/lib/mongodb"
 import { compare, hash } from "bcryptjs"
 
 const JWT_SECRET = process.env.JWT_SECRET || "your-secret-key"
-const JWT_EXPIRES_IN = "7d"
+const JWT_EXPIRES_IN = "365d"
 
 export async function loginUser({ email, password }: { email: string; password: string }) {
   try {

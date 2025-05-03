@@ -1,6 +1,6 @@
 import { MongoClient } from "mongodb"
 
-const MONGODB_URI = process.env.MONGODB_URI || "mongodb://localhost:27017/user-management"
+const MONGODB_URI = process.env.MONGODB_URI 
 const MONGODB_DB = process.env.MONGODB_DB || "user-management"
 
 let cachedClient: MongoClient | null = null
